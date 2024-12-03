@@ -1,0 +1,21 @@
+---
+import { verifyToken } from '../../services/auth';
+import NotificationBell from './UserMenu/NotificationBell.astro';
+import UserInfo from './UserMenu/UserInfo.astro';
+
+const token = Astro.cookies.get('admin-token')?.value;
+const admin = token ? await verifyToken(token) : null;
+const username = admin ? admin.username : 'Invitado';
+---
+
+<header class="bg-white border-b border-starlight-border">
+  <div
+    class="px-6 py-4 flex items-center justify-between max-w-[90rem] mx-auto"
+  >
+    <h1 class="text-xl font-semibold text-starlight-text">ClientFy Usuarios</h1>
+    <div class="flex items-center space-x-4">
+      <NotificationBell />
+      <UserInfo username={username} />
+    </div>
+  </div>
+</header>

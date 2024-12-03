@@ -1,0 +1,60 @@
+---
+import { menuItems } from '../../data/navigation';
+import { verifyToken } from '../../services/auth';
+import Logo from './Navigation/Logo.astro';
+import MenuItem from './Navigation/MenuItem.astro';
+
+// Verificar autenticación
+const token = Astro.cookies.get('admin-token')?.value;
+const admin = token ? await verifyToken(token) : null;
+---
+
+{
+  admin ? (
+    <aside class="w-64 border-r border-starlight-border bg-white flex flex-col">
+      <Logo />
+      <nav class="flex-1">
+        <ul class="space-y-1 px-3">
+          {menuItems.map((item) => (
+            <MenuItem {...item} />
+          ))}
+        </ul>
+      </nav>
+      
+      <!-- Footer del sidebar -->
+      <div class="p-4 border-t border-gray-200">
+        <div class="flex items-center justify-between text-sm text-gray-600">
+          <span>{admin.username}</span>
+          <button
+            id="logout"
+            class="text-red-600 hover:text-red-700 font-medium"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </aside>
+  ) : null
+}
+
+<script>
+  const logoutButton = document.getElementById('logout');
+  if (logoutButton) {
+    logoutButton.addEventListener('click', async () => {
+      try {
+        const response = await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          window.location.href = '/admin/login';
+        }
+      } catch (error) {
+        console.error('Error al cerrar sesión:', error);
+      }
+    });
+  }
+</script>

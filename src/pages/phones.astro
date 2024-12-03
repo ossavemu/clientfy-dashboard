@@ -1,0 +1,105 @@
+---
+import Redis from 'ioredis';
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { verifyToken } from '../services/auth';
+
+// Verificar autenticación
+const token = Astro.cookies.get('admin-token')?.value;
+const admin = token ? await verifyToken(token) : null;
+
+if (!admin) {
+  return Astro.redirect('/admin/login');
+}
+
+// Obtener celulares de Redis
+const redis = new Redis(process.env.REDIS_URL || '');
+
+// Obtener IDs de celulares del índice
+const phoneIds = await redis.smembers('phones');
+
+// Obtener datos de cada celular
+const phones = await Promise.all(
+  phoneIds.map(async (id) => {
+    const data = await redis.get(id);
+    return data ? JSON.parse(data) : null;
+  })
+);
+
+// Filtrar nulls y ordenar por fecha de creación
+const sortedPhones = phones
+  .filter(Boolean)
+  .sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+---
+
+<DashboardLayout title="Lista de Celulares">
+  <div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">Celulares Registrados</h1>
+      <a
+        href="/register-phone"
+        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+      >
+        Nuevo Celular
+      </a>
+    </div>
+
+    <div class="bg-white shadow-md rounded-lg overflow-hidden">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Nombre
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Celular
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Email
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Registrado Por
+            </th>
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Fecha
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {
+            sortedPhones.map((phone) => (
+              <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {phone.nombre}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {phone.celular}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {phone.email}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {phone.registeredBy}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(phone.createdAt).toLocaleDateString()}
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</DashboardLayout>

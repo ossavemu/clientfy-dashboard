@@ -1,0 +1,28 @@
+{
+  "users": [
+    {
+      "nombre": "Oscar",
+      "usuario": "pep",
+      "celular": "123456",
+      "email": "clientfy0@gmail.com",
+      "password": "abfc9605-2b46-43e2-a6f5-b332aaea077a",
+      "createdAt": "2024-11-30T20:48:57.168Z"
+    },
+    {
+      "nombre": "oscar",
+      "usuario": "pop",
+      "celular": "(30) 5348-3248",
+      "email": "osanvem@gmail.com",
+      "password": "0eef16c8-8163-4ea9-b5e7-b8420648a0de",
+      "createdAt": "2024-11-30T22:08:23.812Z"
+    },
+    {
+      "nombre": "Evento comfandi",
+      "usuario": "opc",
+      "celular": "984 168 6312",
+      "email": "perrito@gmail.com",
+      "password": "c1ba9e3c-f623-40d9-b803-bd9f35aac5e6",
+      "createdAt": "2024-11-30T22:15:00.236Z"
+    }
+  ]
+}

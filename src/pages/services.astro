@@ -1,0 +1,235 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { verifyToken } from '../services/auth';
+import { redis } from '../config/redis';
+
+interface Instance {
+  port: number;
+  active: boolean;
+  pid: number | null;
+}
+
+interface State {
+  instances: Instance[];
+}
+
+// Verificar autenticación
+const token = Astro.cookies.get('admin-token')?.value;
+const admin = token ? await verifyToken(token) : null;
+
+if (!admin) {
+  return Astro.redirect('/admin/login');
+}
+
+// Obtener estado inicial usando Redis
+let initialState: State = { instances: [] };
+try {
+  const response = await fetch('http://4.239.88.228/state');
+  initialState = await response.json();
+} catch (error) {
+  console.error('Error al obtener el estado del servidor:', error);
+  // Estado por defecto en caso de error
+  initialState = {
+    instances: [
+      { port: 3008, active: false, pid: null },
+      { port: 3009, active: false, pid: null },
+      { port: 3010, active: false, pid: null },
+      { port: 3011, active: false, pid: null },
+    ],
+  };
+}
+---
+
+<DashboardLayout title="Estado de Servicios">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">Estado de Servicios</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {
+        initialState.instances.map((instance: any) => (
+          <div class="bg-white p-4 rounded-lg shadow">
+            <div class="flex justify-between items-center mb-4">
+              <span class="text-lg font-medium">Puerto {instance.port}</span>
+              <span
+                class={`px-2 py-1 rounded text-sm ${
+                  instance.active
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {instance.active ? 'Activo' : 'Inactivo'}
+              </span>
+            </div>
+            <p class="text-gray-600 mb-4">PID: {instance.pid}</p>
+            <button
+              class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 transition-colors qr-button"
+              data-port={instance.port}
+            >
+              Ver QR
+            </button>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</DashboardLayout>
+
+<!-- Modal para QR -->
+<div
+  id="qrModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+>
+  <div class="bg-white p-6 rounded-lg max-w-md w-full">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-medium" id="modalTitle">QR Code</h3>
+      <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+        <svg
+          class="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div id="qrContainer" class="flex justify-center">
+      <!-- QR se insertará aqu -->
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentPort: string | null = null;
+  let updateInterval: NodeJS.Timeout | null = null;
+
+  async function fetchQR(port: string) {
+    try {
+      const response = await fetch(`/api/qr?port=${port}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al obtener QR');
+      }
+
+      // Crear URL del blob de la imagen
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Error fetching QR:', error);
+      return null;
+    }
+  }
+
+  async function updateQR() {
+    if (!currentPort) return;
+
+    const container = document.getElementById('qrContainer');
+    if (!container) return;
+
+    container.innerHTML = '<div class="text-center">Cargando QR...</div>';
+
+    const imageUrl = await fetchQR(currentPort);
+    if (imageUrl) {
+      // Limpiar la URL anterior para evitar fugas de memoria
+      const oldImg = container.querySelector('img');
+      if (oldImg && oldImg.src) {
+        URL.revokeObjectURL(oldImg.src);
+      }
+
+      container.innerHTML = `<img src="${imageUrl}" alt="QR Code" class="max-w-full h-auto" />`;
+    } else {
+      container.innerHTML =
+        '<div class="text-center text-red-500">Error al cargar el código QR. Intente nuevamente.</div>';
+    }
+  }
+
+  function showModal(port: string) {
+    currentPort = port;
+    const modal = document.getElementById('qrModal');
+    const title = document.getElementById('modalTitle');
+
+    if (modal && title) {
+      modal.classList.remove('hidden');
+      title.textContent = `QR Code - Puerto ${port}`;
+      updateQR(); // Primera carga del QR
+
+      // Iniciar actualización periódica
+      if (updateInterval) clearInterval(updateInterval);
+      updateInterval = setInterval(updateQR, 30000); // Actualizar cada 30 segundos
+    }
+  }
+
+  function hideModal() {
+    const modal = document.getElementById('qrModal');
+    if (modal) {
+      modal.classList.add('hidden');
+
+      // Limpiar la URL del objeto al cerrar
+      const container = document.getElementById('qrContainer');
+      const img = container?.querySelector('img');
+      if (img && img.src) {
+        URL.revokeObjectURL(img.src);
+      }
+
+      currentPort = null;
+
+      // Detener la actualización periódica
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+      }
+    }
+  }
+
+  // Event Listeners
+  document.querySelectorAll('.qr-button').forEach((button) => {
+    button.addEventListener('click', () => {
+      const port = button.getAttribute('data-port');
+      if (port) showModal(port);
+    });
+  });
+
+  document.getElementById('closeModal')?.addEventListener('click', hideModal);
+
+  // Cerrar modal al hacer clic fuera
+  document.getElementById('qrModal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) hideModal();
+  });
+
+  // Actualizar el estado cada 30 segundos
+  setInterval(async () => {
+    try {
+      const response = await fetch('http://4.239.88.228/state');
+      const state = await response.json();
+
+      // Actualizar la UI con el nuevo estado
+      const instances = document.querySelectorAll('.bg-white.p-4');
+      state.instances.forEach((instance: any, index: number) => {
+        const element = instances[index];
+        if (element) {
+          const statusSpan = element.querySelector('span:not(.text-lg)');
+          const pidText = element.querySelector('p.text-gray-600');
+
+          if (statusSpan) {
+            statusSpan.textContent = instance.active ? 'Activo' : 'Inactivo';
+            statusSpan.className = `px-2 py-1 rounded text-sm ${
+              instance.active
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+            }`;
+          }
+
+          if (pidText) {
+            pidText.textContent = `PID: ${instance.pid || 'N/A'}`;
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+    }
+  }, 30000);
+</script>

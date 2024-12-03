@@ -1,0 +1,19 @@
+---
+interface Props {
+  name: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const { name, size = 'md' } = Astro.props;
+const sizes = {
+  sm: 'h-6 w-6',
+  md: 'h-8 w-8',
+  lg: 'h-10 w-10'
+};
+---
+
+<img 
+  class={`${sizes[size]} rounded-full ring-2 ring-starlight-accent`} 
+  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=c4b5fd&color=5b21b6`} 
+  alt={`${name}'s avatar`} 
+/>
