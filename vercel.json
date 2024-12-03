@@ -4,22 +4,19 @@
   "devCommand": "bunx --bun astro dev",
   "framework": "astro",
   "functions": {
-    ".vercel/output/functions/_render.func/**/*": {
+    "api/qr": {
       "runtime": "bun@1.1.18"
     },
-    "src/pages/api/qr.ts": {
+    "api/state": {
       "runtime": "bun@1.1.18"
     },
-    "src/pages/api/state.ts": {
+    "api/users": {
       "runtime": "bun@1.1.18"
     },
-    "src/pages/api/users.ts": {
+    "api/phones": {
       "runtime": "bun@1.1.18"
     },
-    "src/pages/api/phones.ts": {
-      "runtime": "bun@1.1.18"
-    },
-    "src/pages/api/auth/**/*": {
+    "api/auth/*": {
       "runtime": "bun@1.1.18"
     }
   }
