@@ -4,9 +4,6 @@
   "devCommand": "npm run dev",
   "framework": "astro",
   "functions": {
-    "api/**/*": {
-      "runtime": "bun@1.1.18"
-    },
     ".vercel/output/functions/**/*": {
       "runtime": "bun@1.1.18"
     }
