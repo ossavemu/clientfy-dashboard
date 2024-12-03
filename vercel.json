@@ -4,19 +4,7 @@
   "devCommand": "bunx --bun astro dev",
   "framework": "astro",
   "functions": {
-    "api/qr": {
-      "runtime": "bun@1.1.18"
-    },
-    "api/state": {
-      "runtime": "bun@1.1.18"
-    },
-    "api/users": {
-      "runtime": "bun@1.1.18"
-    },
-    "api/phones": {
-      "runtime": "bun@1.1.18"
-    },
-    "api/auth/*": {
+    "api/*.ts": {
       "runtime": "bun@1.1.18"
     }
   }
