@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "bun build",
-  "devCommand": "bun dev",
+  "buildCommand": "bun astro build",
+  "devCommand": "bun astro dev",
   "framework": "astro"
 }
