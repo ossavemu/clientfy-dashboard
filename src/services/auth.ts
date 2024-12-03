@@ -8,6 +8,10 @@ const SALT_ROUNDS = 10;
 // Conexión a Redis
 const redis = new Redis(process.env.REDIS_URL || '');
 
+redis.on('error', (err) => {
+  console.error('Redis connection error:', err);
+});
+
 export interface Admin {
   username: string;
   password: string;
