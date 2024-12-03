@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "bunx astro build",
-  "devCommand": "bunx astro dev",
+  "buildCommand": "pnpm run build",
+  "devCommand": "pnpm run dev",
   "framework": "astro"
 }
