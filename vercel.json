@@ -1,6 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "bun astro build",
-  "devCommand": "bun astro dev",
-  "framework": "astro"
+  "buildCommand": "bunx --bun astro build",
+  "devCommand": "bunx --bun astro dev",
+  "framework": "astro",
+  "functions": {
+    "**/*": {
+      "runtime": "bun@1.1.18"
+    }
+  }
 }
