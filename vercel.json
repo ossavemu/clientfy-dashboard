@@ -2,8 +2,5 @@
   "version": 2,
   "buildCommand": "bunx --bun astro build",
   "devCommand": "bunx --bun astro dev",
-  "framework": "astro",
-  "regions": [
-    "fra1"
-  ]
+  "framework": "astro"
 }
