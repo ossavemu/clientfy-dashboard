@@ -6,6 +6,6 @@ export default defineConfig({
   integrations: [tailwind()],
   output: 'server',
   adapter: vercel({
-    runtime: 'edge'
+    runtime: 'nodejs18.x'
   }),
 });
