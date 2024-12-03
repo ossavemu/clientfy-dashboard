@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "bunx --bun astro build",
-  "devCommand": "bunx --bun astro dev",
+  "buildCommand": "bunx astro build",
+  "devCommand": "bunx astro dev",
   "framework": "astro"
 }

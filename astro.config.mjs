@@ -5,7 +5,5 @@ import { defineConfig } from 'astro/config';
 export default defineConfig({
   integrations: [tailwind()],
   output: 'server',
-  adapter: vercel({
-    runtime: 'edge',
-  }),
+  adapter: vercel(), // Elimina la especificación de runtime
 });
