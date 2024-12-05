@@ -1,0 +1,109 @@
+APIs ClientFy Dashboard
+
+1. ARCHIVOS
+-----------
+
+1.1 Subir Archivo o Texto
+URL: POST /api/files/upload
+
+Texto:
+curl -X POST http://localhost:4321/api/files/upload \
+-H "Content-Type: application/json" \
+-d '{
+  "phoneNumber": "573053483248",
+  "text": "Este es un texto de prueba"
+}'
+
+Archivo:
+curl -X POST http://localhost:4321/api/files/upload \
+-F "phoneNumber=573053483248" \
+-F "file=@/ruta/al/archivo.pdf"
+
+1.2 Obtener Archivos de Usuario
+URL: GET /api/files/files?phoneNumber={numero}
+curl "http://localhost:4321/api/files/files?phoneNumber=573053483248"
+
+1.3 Eliminar Archivo
+URL: DELETE /api/files/delete?phoneNumber={numero}&fileName={nombre}
+curl -X DELETE "http://localhost:4321/api/files/delete?phoneNumber=573053483248&fileName=texto_1234567890.txt"
+
+
+2. PROMPTS
+----------
+
+2.1 Guardar Prompt
+URL: POST /api/prompt/upload
+curl -X POST http://localhost:4321/api/prompt/upload \
+-H "Content-Type: application/json" \
+-d '{
+  "number": "573053483248",
+  "prompt": "Este es un prompt de prueba"
+}'
+
+2.2 Obtener Último Prompt
+URL: GET /api/prompt/{numero}
+curl "http://localhost:4321/api/prompt/573053483248"
+
+
+3. CALENDARIO
+------------
+
+3.1 Obtener Credenciales
+URL: GET /api/calendar/credentials?key={key}
+curl "http://localhost:4321/api/calendar/credentials?key=tu_key_secreta"
+
+
+4. CÓDIGOS QR
+------------
+
+4.1 Obtener QR
+URL: GET /api/qr?port={puerto}
+curl "http://localhost:4321/api/qr?port=8080"
+
+
+CÓDIGOS DE RESPUESTA
+-------------------
+
+200 - Éxito
+{
+  "message": "Operación exitosa",
+  "data": { ... }
+}
+
+400 - Error de Validación
+{
+  "error": "Descripción del error",
+  "message": "Mensaje detallado"
+}
+
+401 - No Autorizado
+{
+  "error": "No autorizado",
+  "message": "Credenciales inválidas"
+}
+
+404 - No Encontrado
+{
+  "error": "Recurso no encontrado",
+  "message": "El recurso solicitado no existe"
+}
+
+500 - Error del Servidor
+{
+  "error": "Error interno del servidor",
+  "message": "Descripción del error"
+}
+
+
+NOTAS
+-----
+- Los números de teléfono deben incluir código de país:
+  * Colombia: 57 (ej: 573053483248)
+  * México: 52 (ej: 5219981234567)
+- Tipos de archivo permitidos:
+  * PDF
+  * Word
+  * TXT
+  * CSV
+  * JSON
+  * Markdown 

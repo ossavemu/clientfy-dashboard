@@ -21,10 +21,10 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 export const blobService = {
-  async initialize() {
+  async initialize(container = 'user-files') {
     const blobServiceClient =
       BlobServiceClient.fromConnectionString(connectionString);
-    const containerClient = blobServiceClient.getContainerClient(containerName);
+    const containerClient = blobServiceClient.getContainerClient(container);
     await containerClient.createIfNotExists();
     return containerClient;
   },

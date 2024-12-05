@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { blobService } from '../../../utils/blobService';
 
 export const GET: APIRoute = async ({ url }) => {
   try {
@@ -19,8 +20,15 @@ export const GET: APIRoute = async ({ url }) => {
       );
     }
 
-    const response = await fetch(import.meta.env.CALENDAR_CREDENTIALS_URL);
-    const credentials = await response.json();
+    // Obtener credenciales desde Azure Blob
+    const containerClient = await blobService.initialize('config');
+    const blobClient = containerClient.getBlockBlobClient(
+      'CLIENTFY_CREDENTIALS.json'
+    );
+    const downloadResponse = await blobClient.download();
+    const credentials = await streamToJSON(
+      downloadResponse.readableStreamBody ?? null
+    );
 
     if (!credentials) {
       return new Response(
@@ -59,3 +67,15 @@ export const GET: APIRoute = async ({ url }) => {
     );
   }
 };
+
+// Función auxiliar para convertir ReadableStream a JSON
+async function streamToJSON(stream: NodeJS.ReadableStream | null) {
+  if (!stream) return null;
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+  const buffer = Buffer.concat(chunks);
+  return JSON.parse(buffer.toString());
+}
