@@ -1,0 +1,320 @@
+---
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { verifyToken } from '../services/auth';
+import { redis } from '../config/redis';
+
+// Verificar autenticación
+const token = Astro.cookies.get('client-token')?.value;
+const user = token ? await verifyToken(token) : null;
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Obtener el teléfono del usuario
+const userPhoneKey = `user:${user.username}:phone`;
+const phoneNumber = await redis.get(userPhoneKey);
+
+// Obtener el prompt actual si existe usando el endpoint
+let currentPrompt = '';
+if (phoneNumber) {
+  try {
+    const response = await fetch(`${Astro.url.origin}/api/prompt/${phoneNumber}`);
+    if (response.ok) {
+      const data = await response.json();
+      currentPrompt = data.prompt;
+    }
+  } catch (error) {
+    console.error('Error al obtener prompt:', error);
+  }
+}
+---
+
+<DashboardLayout title="Gestión de Prompts" allowedRole="client">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-8">Gestión de Prompts</h1>
+
+    {
+      !phoneNumber ? (
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg
+                class="h-5 w-5 text-yellow-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-yellow-700">
+                Necesitas registrar un número de teléfono antes de poder
+                gestionar prompts.
+              </p>
+              <p class="mt-2">
+                <a
+                  href="/register-phone"
+                  class="text-sm font-medium text-yellow-700 underline hover:text-yellow-600"
+                >
+                  Registrar número
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div class="space-y-6">
+          <div class="bg-white shadow rounded-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-lg font-medium">
+                {currentPrompt ? 'Editar Prompt' : 'Crear Nuevo Prompt'}
+              </h2>
+              {currentPrompt && (
+                <span class="text-sm text-gray-500">
+                  Último prompt guardado
+                </span>
+              )}
+            </div>
+
+            <div class="space-y-4">
+              <textarea
+                id="promptText"
+                rows="8"
+                class="w-full rounded-lg border-2 border-gray-200 shadow-sm focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition-all resize-none p-4 text-gray-700 outline-none"
+                placeholder="Ejemplo:
+
+Eres un vendedor experto de una tienda de frutas. Tu objetivo es ayudar a los clientes a elegir las mejores frutas de temporada y brindar consejos sobre su conservación.
+
+Debes:
+- Saludar amablemente
+- Preguntar qué tipo de fruta buscan
+- Sugerir frutas de temporada
+- Dar consejos de conservación
+- Mencionar beneficios nutricionales
+- Ofrecer recetas sencillas
+
+Mantén un tono amigable y profesional en todo momento."
+              >
+                {currentPrompt}
+              </textarea>
+              <div class="flex items-center justify-between gap-4">
+                <div class="relative flex-1 group">
+                  <button
+                    id="improveButton"
+                    class="w-full py-2 px-4 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-md transition-colors flex items-center justify-center gap-2 border border-indigo-200 group-hover:border-indigo-300"
+                    aria-label="Mejorar prompt con IA"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    Mejorar con IA
+                  </button>
+                  <!-- Tooltip -->
+                  <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-64 z-10">
+                    <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 text-center">
+                      Optimiza tu prompt usando IA para hacerlo más efectivo y profesional
+                    </div>
+                    <div class="w-3 h-3 bg-gray-900 transform rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>
+                  </div>
+                </div>
+                <button
+                  id="revertButton"
+                  class="hidden flex-1 py-2 px-4 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-md transition-colors flex items-center justify-center gap-2 border border-gray-200"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                    />
+                  </svg>
+                  Revertir Cambios
+                </button>
+              </div>
+              <div class="mt-2 bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r-md">
+                <p class="text-sm text-blue-700">
+                  <span class="font-medium">💡 Tip:</span> Usa el botón "Mejorar con IA" para:
+                </p>
+                <ul class="mt-1 text-sm text-blue-600 list-disc list-inside">
+                  <li>Hacer tu prompt más profesional y efectivo</li>
+                  <li>Agregar manejo de situaciones comunes</li>
+                  <li>Establecer límites claros para el chatbot</li>
+                </ul>
+              </div>
+              <button
+                id="uploadButton"
+                class="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
+                </svg>
+                {currentPrompt ? 'Actualizar Prompt' : 'Guardar Prompt'}
+              </button>
+            </div>
+          </div>
+
+          <div id="message" class="hidden rounded-md p-4" />
+        </div>
+      )
+    }
+  </div>
+</DashboardLayout>
+
+<!-- Script para inicializar el valor del textarea -->
+<script define:vars={{ phoneNumber, currentPrompt }}>
+  const textareaElement = document.getElementById('promptText');
+  if (textareaElement && currentPrompt) {
+    textareaElement.value = currentPrompt;
+  }
+</script>
+
+<!-- Script principal -->
+<script define:vars={{ phoneNumber }}>
+  // Elementos del DOM
+  const messageDiv = document.getElementById('message');
+  const uploadButton = document.getElementById('uploadButton');
+  const improveButton = document.getElementById('improveButton');
+  const revertButton = document.getElementById('revertButton');
+  const promptTextElement = document.getElementById('promptText');
+  let originalPromptText = '';
+
+  // Función para mostrar mensajes
+  function showMessage(message, isError = false) {
+    if (messageDiv) {
+      messageDiv.textContent = message;
+      messageDiv.className = `rounded-md p-4 ${
+        isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+      }`;
+      messageDiv.classList.remove('hidden');
+    }
+  }
+
+  // Subir prompt
+  uploadButton?.addEventListener('click', async () => {
+    if (!promptTextElement) return;
+    
+    const promptText = promptTextElement.value.trim();
+    if (!promptText) {
+      showMessage('Por favor, escribe un prompt antes de guardarlo', true);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/prompt/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          number: phoneNumber,
+          prompt: promptText,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('Prompt guardado exitosamente');
+        window.location.reload();
+      } else {
+        showMessage(data.error || 'Error al guardar el prompt', true);
+      }
+    } catch (error) {
+      showMessage('Error al procesar la solicitud', true);
+    }
+  });
+
+  // Mejorar prompt
+  improveButton?.addEventListener('click', async () => {
+    if (!promptTextElement) return;
+    
+    const prompt = promptTextElement.value.trim();
+    if (!prompt) {
+      showMessage('Por favor, escribe un prompt antes de mejorarlo', true);
+      return;
+    }
+
+    originalPromptText = prompt;
+    
+    try {
+      if (improveButton instanceof HTMLButtonElement) {
+        improveButton.disabled = true;
+        improveButton.innerHTML = `
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+          </svg>
+          Mejorando...
+        `;
+      }
+
+      const response = await fetch('/api/prompt/improve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.improvedPrompt) {
+        promptTextElement.value = data.improvedPrompt;
+        showMessage('Prompt mejorado exitosamente');
+        revertButton?.classList.remove('hidden');
+      } else {
+        throw new Error(data.message || 'Error al mejorar el prompt');
+      }
+    } catch (error) {
+      showMessage('Error al mejorar el prompt. Intenta de nuevo.', true);
+    } finally {
+      if (improveButton instanceof HTMLButtonElement) {
+        improveButton.disabled = false;
+        improveButton.innerHTML = `
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Mejorar con IA
+        `;
+      }
+    }
+  });
+
+  // Revertir cambios
+  revertButton?.addEventListener('click', () => {
+    if (promptTextElement && revertButton) {
+      promptTextElement.value = originalPromptText;
+      revertButton.classList.add('hidden');
+      showMessage('Prompt revertido a la versión original');
+    }
+  });
+</script>

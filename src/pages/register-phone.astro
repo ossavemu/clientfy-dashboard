@@ -1,100 +1,269 @@
 ---
 import DashboardLayout from '../layouts/DashboardLayout.astro';
 import { verifyToken } from '../services/auth';
+import { redis } from '../config/redis';
 
-// Verificar autenticación
-const token = Astro.cookies.get('admin-token')?.value;
-const admin = token ? await verifyToken(token) : null;
+// Verificar autenticación de cliente
+const token = Astro.cookies.get('client-token')?.value;
+const user = token ? await verifyToken(token) : null;
 
 // Redirigir a login si no está autenticado
-if (!admin) {
-  return Astro.redirect('/admin/login');
+if (!user) {
+  return Astro.redirect('/login');
 }
+
+// Verificar si el usuario ya tiene un número registrado - LÓGICA MEJORADA
+const allPhones = await redis.keys('phone:*');
+let hasRegisteredPhone = false;
+let registeredPhone = null;
+
+for (const key of allPhones) {
+  const phoneData = await redis.get(key);
+  if (phoneData) {
+    const data = JSON.parse(phoneData);
+    if (data.username === user.username) {
+      hasRegisteredPhone = true;
+      registeredPhone = data;
+      break; // Salir del loop al encontrar el primer teléfono
+    }
+  }
+}
+
+// Lista de países soportados
+const countries = [
+  { code: 'CO', name: 'Colombia', prefix: '57', flag: '🇨🇴' },
+  { code: 'MX', name: 'México', prefix: '52', flag: '🇲🇽' },
+  { code: 'US', name: 'Estados Unidos', prefix: '1', flag: '🇺🇸' },
+];
 ---
 
 <DashboardLayout title="Registro de Celular">
+  <div id="userData" data-username={user?.username} class="hidden"></div>
+
   <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-    <h2 class="text-2xl font-bold mb-6 text-center">Registro de Celular</h2>
+    <h2 class="text-2xl font-bold mb-8 text-center text-gray-800">
+      Registro de Celular
+    </h2>
 
-    <form id="phoneForm" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Nombre</label>
-        <input
-          type="text"
-          name="nombre"
-          required
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        />
-      </div>
+    {
+      hasRegisteredPhone ? (
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg
+                class="h-5 w-5 text-yellow-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-yellow-700">
+                Ya tienes un número registrado. No es posible registrar más
+                números con esta cuenta.
+              </p>
+              <p class="mt-2 text-sm text-yellow-700">
+                <a
+                  href="/my-phones"
+                  class="font-medium underline hover:text-yellow-600"
+                >
+                  Ver mi número registrado
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <form id="phoneForm" class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Celular
+            </label>
+            <div class="flex shadow-sm rounded-md">
+              <select
+                id="countryCode"
+                class="rounded-l-md border border-gray-300 bg-gray-50 text-gray-700 py-2 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-colors"
+              >
+                {countries.map((country) => (
+                  <option value={country.prefix}>
+                    {country.flag} +{country.prefix}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                name="celular"
+                id="phoneInput"
+                required
+                placeholder="3001234567"
+                class="flex-1 rounded-r-md border border-l-0 border-gray-300 py-2 px-4 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-colors"
+              />
+            </div>
+          </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Celular</label>
-        <input
-          type="tel"
-          name="celular"
-          required
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        />
-      </div>
+          <div class="space-y-3">
+            <label class="block text-sm font-medium text-gray-700">
+              Tipo de Servicio
+            </label>
+            <div class="space-y-4 p-4 bg-gray-50 rounded-lg">
+              <label class="flex items-center p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-indigo-300 transition-colors">
+                <input
+                  type="radio"
+                  name="tipo"
+                  value="meta"
+                  required
+                  class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-2 focus:ring-indigo-200"
+                />
+                <span class="ml-3">
+                  <span class="block text-sm font-medium text-gray-700">
+                    WhatsApp Business
+                  </span>
+                  <span class="block text-xs text-gray-500 mt-1">
+                    Servicio completo de WhatsApp Business API
+                  </span>
+                </span>
+              </label>
+              <div
+                id="businessWarning"
+                class="hidden ml-4 text-sm text-yellow-700 bg-yellow-50 p-4 rounded-md border border-yellow-200"
+              >
+                <p class="font-medium mb-2">⚠️ Importante:</p>
+                <ul class="list-disc ml-4 space-y-1 text-yellow-600">
+                  <li>
+                    El número no debe estar vinculado a ningún servicio de
+                    WhatsApp
+                  </li>
+                  <li>Se recomienda usar una tarjeta SIM nueva</li>
+                  <li>
+                    Evite usar números previamente registrados en WhatsApp
+                  </li>
+                </ul>
+              </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Email</label>
-        <input
-          type="email"
-          name="email"
-          required
-          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-        />
-      </div>
+              <label class="flex items-center p-3 bg-white rounded-md border border-gray-200 cursor-pointer hover:border-indigo-300 transition-colors">
+                <input
+                  type="radio"
+                  name="tipo"
+                  value="qr"
+                  required
+                  class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-2 focus:ring-indigo-200"
+                />
+                <span class="ml-3">
+                  <span class="block text-sm font-medium text-gray-700">
+                    Solo QR
+                  </span>
+                  <span class="block text-xs text-gray-500 mt-1">
+                    Acceso básico con código QR
+                  </span>
+                </span>
+              </label>
+              <div
+                id="qrInfo"
+                class="hidden ml-4 text-sm text-blue-700 bg-blue-50 p-4 rounded-md border border-blue-200"
+              >
+                <p class="flex items-center">
+                  <span class="text-lg mr-2">✨</span>
+                  Incluye prueba gratuita de 6 horas para evaluar el servicio
+                </p>
+              </div>
+            </div>
+          </div>
 
-      <button
-        type="submit"
-        class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors"
-      >
-        Registrar Celular
-      </button>
-    </form>
+          <button
+            type="submit"
+            class="w-full py-3 px-4 mt-6 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            Registrar Celular
+          </button>
+        </form>
+      )
+    }
 
     <div id="message" class="mt-4 text-center hidden"></div>
   </div>
 </DashboardLayout>
 
 <script>
+  // Solo inicializar el script si el formulario existe
   const form = document.getElementById('phoneForm');
-  const messageDiv = document.getElementById('message');
 
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
+  if (form) {
+    const messageDiv = document.getElementById('message');
+    const businessWarning = document.getElementById('businessWarning');
+    const qrInfo = document.getElementById('qrInfo');
+    const radioButtons = document.querySelectorAll('input[name="tipo"]');
+    const countryCode = document.getElementById(
+      'countryCode'
+    ) as HTMLSelectElement;
+    const phoneInput = document.getElementById(
+      'phoneInput'
+    ) as HTMLInputElement;
 
-    try {
-      const response = await fetch('/api/phones', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(Object.fromEntries(formData)),
+    // Obtener el username del elemento data
+    const userData = document.getElementById('userData');
+    const username = userData?.getAttribute('data-username');
+
+    // Mostrar/ocultar información según el tipo seleccionado
+    radioButtons.forEach((radio) => {
+      radio.addEventListener('change', (e) => {
+        const value = (e.target as HTMLInputElement).value;
+        if (businessWarning) {
+          businessWarning.classList.toggle('hidden', value !== 'meta');
+        }
+        if (qrInfo) {
+          qrInfo.classList.toggle('hidden', value !== 'qr');
+        }
       });
+    });
 
-      const data = await response.json();
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target as HTMLFormElement);
 
-      if (messageDiv) {
-        messageDiv.textContent = data.message;
-        messageDiv.className = `mt-4 text-center ${
-          data.success ? 'text-green-600' : 'text-red-600'
-        }`;
-        messageDiv.classList.remove('hidden');
-      }
+      // Combinar código de país con número
+      const phoneNumber =
+        countryCode.value + phoneInput.value.replace(/\D/g, '');
+      formData.set('celular', phoneNumber);
 
-      if (data.success) {
-        (e.target as HTMLFormElement).reset();
+      try {
+        const response = await fetch('/api/phones', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...Object.fromEntries(formData),
+            username, // Usar el username obtenido del elemento data
+          }),
+        });
+
+        const data = await response.json();
+
+        if (messageDiv) {
+          messageDiv.textContent = data.message;
+          messageDiv.className = `mt-4 text-center ${
+            data.success ? 'text-green-600' : 'text-red-600'
+          }`;
+          messageDiv.classList.remove('hidden');
+        }
+
+        if (data.success) {
+          (e.target as HTMLFormElement).reset();
+          if (businessWarning) businessWarning.classList.add('hidden');
+          if (qrInfo) qrInfo.classList.add('hidden');
+        }
+      } catch (error) {
+        if (messageDiv) {
+          messageDiv.textContent = 'Error al procesar la solicitud';
+          messageDiv.className = 'mt-4 text-center text-red-600';
+          messageDiv.classList.remove('hidden');
+        }
       }
-    } catch (error) {
-      if (messageDiv) {
-        messageDiv.textContent = 'Error al procesar la solicitud';
-        messageDiv.className = 'mt-4 text-center text-red-600';
-        messageDiv.classList.remove('hidden');
-      }
-    }
-  });
+    });
+  }
 </script>

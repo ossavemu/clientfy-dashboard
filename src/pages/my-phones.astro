@@ -1,0 +1,241 @@
+---
+import { redis } from '../config/redis';
+import DashboardLayout from '../layouts/DashboardLayout.astro';
+import { verifyToken } from '../services/auth';
+
+interface PhoneData {
+  celular: string;
+  tipo: 'meta' | 'qr';
+  createdAt: string;
+  trialEndsAt?: string;
+  username: string;
+}
+
+// Verificar autenticación de cliente
+const token = Astro.cookies.get('client-token')?.value;
+const user = token ? await verifyToken(token) : null;
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Obtener el teléfono del usuario
+const userPhoneKey = `user:${user.username}:phone`;
+const phoneNumber = await redis.get(userPhoneKey);
+let phoneData: PhoneData | null = null;
+
+if (phoneNumber) {
+  const phoneKey = `phone:${phoneNumber}`;
+  const rawPhoneData = await redis.get(phoneKey);
+  if (rawPhoneData) {
+    phoneData = JSON.parse(rawPhoneData);
+  }
+}
+---
+
+<DashboardLayout title="Mi Teléfono">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-8">Mi Teléfono Registrado</h1>
+
+    {
+      phoneData ? (
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+          <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 class="text-sm font-medium text-gray-500">Número</h3>
+                <p class="mt-1 text-lg text-gray-900">{phoneData.celular}</p>
+              </div>
+              <div>
+                <h3 class="text-sm font-medium text-gray-500">
+                  Tipo de Servicio
+                </h3>
+                <div class="mt-1 flex items-center space-x-2">
+                  <select
+                    id="serviceType"
+                    class="rounded-md border-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    value={phoneData.tipo}
+                  >
+                    <option value="meta">WhatsApp Business</option>
+                    <option value="qr">Solo QR</option>
+                  </select>
+                  <button
+                    id="saveType"
+                    class="px-3 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-500 border border-indigo-300 rounded-md hover:border-indigo-400"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+              <div>
+                <h3 class="text-sm font-medium text-gray-500">
+                  Fecha de Registro
+                </h3>
+                <p class="mt-1 text-gray-900">
+                  {new Date(phoneData.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              {phoneData.tipo === 'qr' && phoneData.trialEndsAt && (
+                <div>
+                  <h3 class="text-sm font-medium text-gray-500">
+                    Prueba Gratuita Termina
+                  </h3>
+                  <p class="mt-1 text-gray-900">
+                    {new Date(phoneData.trialEndsAt).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-4">
+              <button
+                id="deletePhone"
+                class="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 border border-red-300 rounded-md hover:border-red-400"
+              >
+                Eliminar Número
+              </button>
+            </div>
+
+            {phoneData.tipo === 'qr' && phoneData.trialEndsAt && (
+              <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <svg
+                      class="h-5 w-5 text-blue-400"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                      Tu período de prueba está activo. Termina en{' '}
+                      {new Date(phoneData.trialEndsAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div class="bg-white shadow rounded-lg p-6">
+          <p class="text-gray-500 text-center">
+            No tienes ningún teléfono registrado.{' '}
+            <a
+              href="/register-phone"
+              class="text-indigo-600 hover:text-indigo-500 font-medium"
+            >
+              Registrar un teléfono
+            </a>
+          </p>
+        </div>
+      )
+    }
+  </div>
+
+  <!-- Modal de confirmación para eliminar -->
+  <div
+    id="deleteModal"
+    class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"
+  >
+    <div
+      class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white"
+    >
+      <div class="mt-3">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">
+          Confirmar Eliminación
+        </h3>
+        <div class="mt-2 space-y-4">
+          <p class="text-sm text-gray-500">
+            ¿Estás seguro de que deseas eliminar este número? Esta acción:
+          </p>
+          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
+            <ul class="list-disc list-inside text-yellow-700 space-y-2">
+              <li>Desvinculará el número de tu cuenta</li>
+              <li>Ocultará temporalmente el prompt asociado</li>
+              <li class="font-medium">
+                Nota: Si registras el mismo número nuevamente, recuperarás el
+                prompt anterior
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-3 mt-6">
+          <button
+            id="cancelDelete"
+            class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            id="confirmDelete"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script define:vars={{ phoneData }}>
+  // Cambiar tipo de servicio
+  const saveTypeBtn = document.getElementById('saveType');
+  const serviceTypeSelect = document.getElementById('serviceType');
+
+  saveTypeBtn?.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/api/phones/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          celular: phoneData.celular,
+          tipo: serviceTypeSelect?.value,
+        }),
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+
+  // Eliminar teléfono
+  const deleteBtn = document.getElementById('deletePhone');
+  const deleteModal = document.getElementById('deleteModal');
+  const cancelDeleteBtn = document.getElementById('cancelDelete');
+  const confirmDeleteBtn = document.getElementById('confirmDelete');
+
+  deleteBtn?.addEventListener('click', () => {
+    deleteModal?.classList.remove('hidden');
+  });
+
+  cancelDeleteBtn?.addEventListener('click', () => {
+    deleteModal?.classList.add('hidden');
+  });
+
+  confirmDeleteBtn?.addEventListener('click', async () => {
+    try {
+      const response = await fetch(`/api/phones/${phoneData.celular}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  });
+</script>

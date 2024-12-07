@@ -1,56 +1,12 @@
 ---
-import DashboardLayout from '../layouts/DashboardLayout.astro';
-import { verifyToken } from '../services/auth';
+const adminToken = Astro.cookies.get('admin-token')?.value;
+const clientToken = Astro.cookies.get('client-token')?.value;
 
-const token = Astro.cookies.get('admin-token')?.value;
-const admin = token ? await verifyToken(token) : null;
-
-// Redirigir a login si no está autenticado
-if (!admin) {
-  return Astro.redirect('/admin/login');
+if (adminToken) {
+  return Astro.redirect('/admin/dashboard');
+} else if (clientToken) {
+  return Astro.redirect('/client/dashboard');
+} else {
+  return Astro.redirect('/login');
 }
 ---
-
-<DashboardLayout title="Dashboard">
-  <div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">Bienvenido, {admin.username}</h1>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <a
-        href="/register-phone"
-        class="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
-      >
-        <h2 class="text-xl font-semibold mb-2">Registrar Celular</h2>
-        <p class="text-gray-600">Registra un nuevo celular en el sistema</p>
-      </a>
-      <a
-        href="/phones"
-        class="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
-      >
-        <h2 class="text-xl font-semibold mb-2">Ver Celulares</h2>
-        <p class="text-gray-600">Lista de todos los celulares registrados</p>
-      </a>
-    </div>
-  </div>
-</DashboardLayout>
-
-<script>
-  const logoutButton = document.getElementById('logout');
-  if (logoutButton) {
-    logoutButton.addEventListener('click', async () => {
-      try {
-        const response = await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.redirected) {
-          window.location.href = response.url;
-        }
-      } catch (error) {
-        console.error('Error al cerrar sesión:', error);
-      }
-    });
-  }
-</script>

@@ -1,46 +1,49 @@
 ---
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/600.css';
-import '@fontsource/inter/700.css';
-import { ClientRouter, fade } from 'astro:transitions';
-import Header from '../components/Dashboard/Header.astro';
 import Sidebar from '../components/Dashboard/Sidebar.astro';
 import { verifyToken } from '../services/auth';
+import Layout from './Layout.astro';
 
 interface Props {
   title: string;
+  requireAuth?: boolean;
+  allowedRole?: 'admin' | 'client';
 }
 
-const { title } = Astro.props;
+const { title, requireAuth = true, allowedRole } = Astro.props;
 
 // Verificar autenticación
-const token = Astro.cookies.get('admin-token')?.value;
-const admin = token ? await verifyToken(token) : null;
+let user = null;
+if (requireAuth) {
+  // Intentar obtener token de admin primero
+  const adminToken = Astro.cookies.get('admin-token')?.value;
+  const clientToken = Astro.cookies.get('client-token')?.value;
+
+  if (adminToken) {
+    user = await verifyToken(adminToken);
+  } else if (clientToken) {
+    user = await verifyToken(clientToken);
+  }
+
+  if (!user) {
+    return Astro.redirect('/login');
+  }
+
+  if (allowedRole && user.role !== allowedRole) {
+    return Astro.redirect(
+      user.role === 'admin' ? '/admin/dashboard' : '/client/dashboard'
+    );
+  }
+}
+
+// Asegurarse de que siempre haya un role definido para el Sidebar
+const sidebarRole = user?.role || 'client';
 ---
 
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="description" content="Panel de Control de ClientFy" />
-    <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} | ClientFy Usuarios</title>
-    <ClientRouter />
-  </head>
-  <body class="bg-starlight-background font-sans">
-    <div class="flex h-screen">
-      <Sidebar />
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        <main
-          class="flex-1 overflow-x-hidden overflow-y-auto p-6"
-          transition:animate={fade({ duration: '0.3s' })}
-        >
-          <slot />
-        </main>
-      </div>
-    </div>
-  </body>
-</html>
+<Layout title={title}>
+  <div class="flex min-h-screen">
+    <Sidebar role={sidebarRole as 'admin' | 'client'} />
+    <main class="flex-1 bg-gray-50">
+      <slot />
+    </main>
+  </div>
+</Layout>

@@ -3,77 +3,98 @@ import Redis from 'ioredis';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
-const SALT_ROUNDS = 10;
+const ADMIN_PASSWORD = 'c497d8ed-b4d9-4663-8b8a-a88083d82fa4';
 
-// Conexión a Redis
 const redis = new Redis(process.env.REDIS_URL || '');
 
-redis.on('error', (err) => {
-  console.error('Redis connection error:', err);
-});
-
-export interface Admin {
+export interface User {
   username: string;
   password: string;
   email: string;
-  role: 'admin';
+  role: 'admin' | 'client';
   createdAt: string;
+  subscription?: {
+    type: 'trial' | 'premium';
+    expiresAt: string;
+  };
 }
 
-interface JWTPayload {
-  username: string;
-  role: string;
-  exp: number;
-}
-
-// Función para verificar admin
-export async function verifyAdmin(username: string, password: string) {
+export async function verifyUser(username: string, password: string) {
   try {
-    // Buscar admin en Redis
-    const adminData = await redis.get(`admin:${username}`);
-    if (!adminData) {
-      console.log('Admin no encontrado:', username);
+    // Verificar si es admin con credenciales específicas
+    if (username === 'admin' && password === ADMIN_PASSWORD) {
+      return {
+        username: 'admin',
+        email: 'admin@clientfy.com',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // Si no es admin, buscar en usuarios normales
+    const userData = await redis.get(`user:${username}`);
+    if (!userData) {
       return null;
     }
 
-    const admin = JSON.parse(adminData) as Admin;
-    const isValid = await bcrypt.compare(password, admin.password);
+    const user = JSON.parse(userData) as User;
+    const isValid = await bcrypt.compare(password, user.password);
 
     if (!isValid) {
-      console.log('Contraseña inválida para:', username);
       return null;
     }
 
-    return admin;
+    return user;
   } catch (error) {
-    console.error('Error verificando admin:', error);
+    console.error('Error verificando usuario:', error);
     return null;
   }
 }
 
-export function generateToken(admin: Admin) {
-  return jwt.sign(
-    {
-      username: admin.username,
-      role: admin.role,
-      exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 horas
-    },
-    JWT_SECRET
-  );
-}
-
-export async function verifyToken(token: string): Promise<JWTPayload | null> {
+export async function verifyToken(token: string) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as { username: string };
 
-    // Verificar que el admin aún existe en Redis
-    const adminExists = await redis.exists(`admin:${decoded.username}`);
-    if (!adminExists) {
-      return null;
+    // Si es admin, retornar objeto admin
+    if (decoded.username === 'admin') {
+      return {
+        username: 'admin',
+        email: 'admin@clientfy.com',
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+      };
     }
 
-    return decoded;
-  } catch {
+    // Si no es admin, buscar en usuarios normales
+    const userData = await redis.get(`user:${decoded.username}`);
+    if (!userData) {
+      return null;
+    }
+    return JSON.parse(userData) as User;
+  } catch (error) {
+    console.error('Error verificando token:', error);
     return null;
   }
+}
+
+export async function createUser(userData: Omit<User, 'createdAt' | 'role'>) {
+  try {
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const user: User = {
+      ...userData,
+      password: hashedPassword,
+      role: 'client',
+      createdAt: new Date().toISOString(),
+    };
+
+    await redis.set(`user:${userData.username}`, JSON.stringify(user));
+    return user;
+  } catch (error) {
+    console.error('Error creando usuario:', error);
+    return null;
+  }
+}
+
+export function generateToken(username: string): string {
+  return jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
 }

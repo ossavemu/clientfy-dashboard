@@ -1,0 +1,69 @@
+---
+import { redis } from '../../config/redis';
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { blobService } from '../../utils/blobService';
+
+// Obtener todos los teléfonos con sus prompts
+const phoneKeys = await redis.keys('phone:*');
+const phones = await Promise.all(
+  phoneKeys.map(async (key) => {
+    const phoneData = await redis.get(key);
+    if (phoneData) {
+      const phone = JSON.parse(phoneData);
+      try {
+        const promptData = await blobService.getPrompt(phone.celular);
+        return {
+          ...phone,
+          prompt: promptData?.prompt || null,
+        };
+      } catch (error) {
+        console.error('Error al obtener prompt:', error);
+        return phone;
+      }
+    }
+    return null;
+  })
+);
+
+const validPhones = phones.filter(
+  (phone): phone is NonNullable<typeof phone> => phone !== null
+);
+---
+
+<DashboardLayout title="Gestión de Prompts" allowedRole="admin">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-8">Gestión de Prompts</h1>
+
+    <div class="grid gap-6">
+      {
+        validPhones.map((phone) => (
+          <div class="bg-white shadow rounded-lg p-6">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h2 class="text-lg font-medium">{phone.name}</h2>
+                <p class="text-sm text-gray-500">Número: {phone.celular}</p>
+                <p class="text-sm text-gray-500">Tipo: {phone.tipo}</p>
+              </div>
+              <span
+                class={`px-2 py-1 rounded-full text-xs font-medium ${phone.prompt ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
+              >
+                {phone.prompt ? 'Prompt Configurado' : 'Sin Prompt'}
+              </span>
+            </div>
+
+            {phone.prompt && (
+              <div class="mt-4 bg-gray-50 rounded-md p-4">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">
+                  Prompt Actual:
+                </h3>
+                <p class="text-sm text-gray-600 whitespace-pre-wrap">
+                  {phone.prompt}
+                </p>
+              </div>
+            )}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</DashboardLayout>

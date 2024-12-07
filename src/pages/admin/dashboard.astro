@@ -1,0 +1,109 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+---
+
+<DashboardLayout title="Dashboard Admin" allowedRole="admin">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">Panel de Administración</h1>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Sección de APIs -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">APIs Disponibles</h2>
+
+        <!-- Archivos -->
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-indigo-600 mb-2">1. Archivos</h3>
+          <div class="space-y-3">
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Subir Archivo o Texto</p>
+              <p class="text-sm text-gray-600">POST /api/files/upload</p>
+            </div>
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Obtener Archivos de Usuario</p>
+              <p class="text-sm text-gray-600">
+                GET /api/files/files?phoneNumber={'573053483248'}
+              </p>
+            </div>
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Eliminar Archivo</p>
+              <p class="text-sm text-gray-600">
+                DELETE /api/files/delete?phoneNumber={'573053483248'}&fileName={
+                  'archivo.txt'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prompts -->
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-indigo-600 mb-2">2. Prompts</h3>
+          <div class="space-y-3">
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Guardar Prompt</p>
+              <p class="text-sm text-gray-600">POST /api/prompt/upload</p>
+            </div>
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Obtener Último Prompt</p>
+              <p class="text-sm text-gray-600">
+                GET /api/prompt/{'573053483248'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calendario y QR -->
+        <div class="space-y-4">
+          <div>
+            <h3 class="text-lg font-medium text-indigo-600 mb-2">
+              3. Calendario
+            </h3>
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Obtener Credenciales</p>
+              <p class="text-sm text-gray-600">
+                GET /api/calendar/credentials?key={'tu_key_secreta'}
+              </p>
+            </div>
+          </div>
+          <div>
+            <h3 class="text-lg font-medium text-indigo-600 mb-2">
+              4. Códigos QR
+            </h3>
+            <div class="border-l-4 border-indigo-200 pl-3">
+              <p class="font-medium">Obtener QR</p>
+              <p class="text-sm text-gray-600">GET /api/qr?port={'8080'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección de Accesos Rápidos -->
+      <div class="space-y-6">
+        <a
+          href="/admin/instances"
+          class="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+        >
+          <h2 class="text-xl font-semibold mb-2">Gestionar Instancias</h2>
+          <p class="text-gray-600">Administra las instancias de WhatsApp</p>
+        </a>
+
+        <a
+          href="/services"
+          class="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+        >
+          <h2 class="text-xl font-semibold mb-2">Servicios</h2>
+          <p class="text-gray-600">Estado de los servicios y códigos QR</p>
+        </a>
+
+        <a
+          href="/admin/users"
+          class="block p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+        >
+          <h2 class="text-xl font-semibold mb-2">Usuarios</h2>
+          <p class="text-gray-600">Gestiona los usuarios del sistema</p>
+        </a>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>

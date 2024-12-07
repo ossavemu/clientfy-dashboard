@@ -1,0 +1,88 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+
+// Usar el nuevo sistema de autenticación del layout
+---
+
+<DashboardLayout title="Dashboard Cliente" allowedRole="client">
+  <div class="container mx-auto px-4 py-8">
+    {
+      Astro.props.user?.subscription?.type !== 'premium' &&
+        Astro.props.user?.subscription?.type !== 'trial' && (
+          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4">¡Bienvenido a ClientFy!</h2>
+            <div class="space-y-6">
+              <div class="flex gap-6">
+                <div class="flex-1 border rounded-lg p-4">
+                  <h3 class="text-xl font-semibold mb-2">Prueba Gratuita</h3>
+                  <p class="text-gray-600 mb-4">
+                    Prueba nuestra aplicación por 7 días
+                  </p>
+                  <button
+                    class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700"
+                    id="startTrial"
+                  >
+                    Comenzar Prueba
+                  </button>
+                </div>
+                <div class="flex-1 border rounded-lg p-4 bg-gradient-to-br from-indigo-50">
+                  <h3 class="text-xl font-semibold mb-2">Premium</h3>
+                  <p class="text-gray-600 mb-4">
+                    Acceso completo a todas las funciones
+                  </p>
+                  <p class="text-2xl font-bold mb-4">$25 USD</p>
+                  <button
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
+                    id="buyPremium"
+                  >
+                    Comprar Ahora
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+    }
+    {
+      (Astro.props.user?.subscription?.type === 'premium' ||
+        Astro.props.user?.subscription?.type === 'trial') && (
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <a
+            href="/register-phone"
+            class="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+          >
+            <h2 class="text-xl font-semibold mb-2">Registrar Celular</h2>
+            <p class="text-gray-600">Registra un nuevo celular en el sistema</p>
+          </a>
+          <a
+            href="/my-phones"
+            class="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+          >
+            <h2 class="text-xl font-semibold mb-2">Mis Celulares</h2>
+            <p class="text-gray-600">Lista de tus celulares registrados</p>
+          </a>
+        </div>
+      )
+    }
+  </div>
+</DashboardLayout>
+
+<script>
+  document.getElementById('startTrial')?.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/api/subscription/trial', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error al iniciar prueba:', error);
+    }
+  });
+
+  document.getElementById('buyPremium')?.addEventListener('click', async () => {
+    // Aquí implementarías la integración con el sistema de pagos
+    alert('Implementar integración con sistema de pagos');
+  });
+</script>

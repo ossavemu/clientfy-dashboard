@@ -49,7 +49,6 @@ export const POST: APIRoute = async ({ request }) => {
       username: data.username,
       email: data.email,
       password: hashedPassword,
-      role: 'admin',
       createdAt: new Date().toISOString(),
     };
 

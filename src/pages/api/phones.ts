@@ -1,57 +1,84 @@
 import type { APIRoute } from 'astro';
-import Redis from 'ioredis';
 import { z } from 'zod';
-import { verifyToken } from '../../services/auth';
+import { redis } from '../../config/redis';
 
 const PhoneSchema = z.object({
-  nombre: z.string().min(2),
-  celular: z.string().min(10),
-  email: z.string().email(),
+  celular: z.string().regex(/^[0-9]+$/, 'Solo números permitidos'),
+  tipo: z.enum(['meta', 'qr']),
+  username: z.string(),
 });
 
-const redis = new Redis(process.env.REDIS_URL || '');
-
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request }) => {
   try {
-    // Verificar autenticación
-    const token = cookies.get('admin-token')?.value;
-    const admin = token ? await verifyToken(token) : null;
-
-    if (!admin) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'No autorizado',
-        }),
-        { status: 401 }
-      );
-    }
-
     const data = await request.json();
-    const validationResult = PhoneSchema.safeParse(data);
+    const validation = PhoneSchema.safeParse(data);
 
-    if (!validationResult.success) {
+    if (!validation.success) {
       return new Response(
         JSON.stringify({
           success: false,
           message: 'Datos inválidos',
+          errors: validation.error.errors,
         }),
         { status: 400 }
       );
     }
 
-    // Guardar celular en Redis con un ID único
-    const phoneId = `phone:${Date.now()}`;
-    const phoneData = {
-      ...data,
-      registeredBy: admin.username,
-      createdAt: new Date().toISOString(),
-    };
+    const { celular, tipo, username } = data;
 
-    await redis.set(phoneId, JSON.stringify(phoneData));
+    // Primero verificar si el usuario ya tiene un teléfono usando un índice específico
+    const userPhoneKey = `user:${username}:phone`;
+    const existingUserPhone = await redis.get(userPhoneKey);
 
-    // También mantener un índice de celulares
-    await redis.sadd('phones', phoneId);
+    if (existingUserPhone) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message:
+            'Ya tienes un número registrado. No es posible registrar más números.',
+        }),
+        { status: 400 }
+      );
+    }
+
+    // Verificar si el celular ya está registrado
+    const phoneKey = `phone:${celular}`;
+    const existingPhone = await redis.get(phoneKey);
+
+    if (existingPhone) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Este número ya está registrado',
+        }),
+        { status: 400 }
+      );
+    }
+
+    // Guardar en Redis usando transacción para asegurar atomicidad
+    const multi = redis.multi();
+
+    // Guardar los datos del teléfono
+    multi.set(
+      phoneKey,
+      JSON.stringify({
+        name: `${username} - ${celular}`,
+        celular,
+        tipo,
+        username, // Agregar username para referencia
+        createdAt: new Date().toISOString(),
+        trialEndsAt:
+          tipo === 'qr'
+            ? new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
+            : null,
+      })
+    );
+
+    // Crear referencia del usuario a su teléfono
+    multi.set(userPhoneKey, celular);
+
+    // Ejecutar transacción
+    await multi.exec();
 
     return new Response(
       JSON.stringify({
