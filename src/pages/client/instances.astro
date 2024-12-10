@@ -1,0 +1,318 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { redis } from '../../config/redis';
+import { verifyToken } from '../../services/auth';
+
+// Verificar autenticación
+const token = Astro.cookies.get('client-token')?.value;
+const user = token ? await verifyToken(token) : null;
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Obtener el teléfono del usuario
+const userPhoneKey = `user:${user.username}:phone`;
+const phoneNumber = await redis.get(userPhoneKey);
+let userPhone = null;
+
+if (phoneNumber) {
+  const phoneKey = `phone:${phoneNumber}`;
+  const rawPhoneData = await redis.get(phoneKey);
+  if (rawPhoneData) {
+    userPhone = JSON.parse(rawPhoneData);
+  }
+}
+
+// Obtener las instancias del usuario
+const state = (await redis.get('whatsapp:state')) || '{"instances":[]}';
+const instanceState = JSON.parse(state);
+
+// Filtrar solo la instancia del usuario actual usando su número de teléfono
+const userInstance = instanceState.instances.find(
+  (instance: any) => instance.numberphone === userPhone?.celular
+);
+
+// Convertir a array para mantener la estructura existente
+const userInstances = userInstance ? [userInstance] : [];
+---
+
+<DashboardLayout title="Bot">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    {
+      !userPhone ? (
+        <div class="text-center">
+          <div class="inline-block p-4 rounded-full bg-yellow-100 mb-4">
+            <svg
+              class="w-12 h-12 text-yellow-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h2 class="text-xl font-semibold mb-2">
+            No tienes un número registrado
+          </h2>
+          <p class="text-gray-600 mb-4">
+            Primero necesitas registrar un número de WhatsApp para poder crear
+            tu bot
+          </p>
+          <a
+            href="/register-phone"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Registrar Número
+          </a>
+        </div>
+      ) : !userInstances?.length ? (
+        <div class="text-center">
+          <div class="inline-block p-4 rounded-full bg-indigo-100 mb-4">
+            <svg
+              class="w-12 h-12 text-indigo-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
+            </svg>
+          </div>
+          <h2 class="text-xl font-semibold mb-2">Crea tu Bot de WhatsApp</h2>
+          <p class="text-gray-600 mb-6">
+            Comienza a automatizar tus conversaciones de WhatsApp
+          </p>
+          <button
+            id="createBot"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            <svg
+              class="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+            Crear Bot
+          </button>
+        </div>
+      ) : (
+        <div class="space-y-6">
+          <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="px-6 py-4 bg-indigo-600">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                  <svg
+                    class="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
+                  </svg>
+                  <h2 class="ml-3 text-lg font-medium text-white">Tu Bot</h2>
+                </div>
+                <span class="px-3 py-1 text-xs font-medium bg-indigo-800 text-white rounded-full">
+                  {userInstances[0]?.provider === 'meta' ? 'Business' : 'QR'}
+                </span>
+              </div>
+            </div>
+            <div class="px-6 py-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Número</div>
+                  <div class="mt-1 text-sm text-gray-900">
+                    {userInstances[0]?.numberphone?.replace(
+                      /(\d{2})(\d{2})(\d{4})(\d{4})/,
+                      '+$1 $2 $3-$4'
+                    ) || 'No disponible'}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Estado</div>
+                  <div class="mt-1">
+                    <span
+                      class={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        userInstances[0]?.state?.toLowerCase() === 'running'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {userInstances[0]?.state || 'Desconocido'}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">IP</div>
+                  <div class="mt-1 flex items-center space-x-2">
+                    <span class="text-sm text-gray-900">
+                      {userInstances[0]?.ip || 'Sin IP'}
+                    </span>
+                    {userInstances[0]?.ip && (
+                      <button
+                        onclick={`navigator.clipboard.writeText('${userInstances[0]?.ip}')`}
+                        class="text-indigo-600 hover:text-indigo-800"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Link</div>
+                  <div class="mt-1 text-sm">
+                    <a
+                      href={`http://${userInstances[0]?.ip || 'localhost'}:3008`}
+                      target="_blank"
+                      class="text-indigo-600 hover:text-indigo-800 flex items-center"
+                    >
+                      Abrir Panel
+                      <svg
+                        class="w-4 h-4 ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  </div>
+
+  <div id="toast" class="fixed bottom-4 right-4 hidden">
+    <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4">
+      <p id="toastMessage" class="text-sm text-gray-600"></p>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script define:vars={{ userPhone }}>
+  // Obtener elementos del DOM sin anotaciones de tipo
+  const toast = document.getElementById('toast');
+  const toastMessage = document.getElementById('toastMessage');
+  const createButton = document.getElementById('createBot');
+
+  if (createButton && toast && toastMessage) {
+    createButton.addEventListener('click', async () => {
+      try {
+        // Deshabilitar el botón mientras se procesa
+        createButton.disabled = true;
+        createButton.innerHTML = `
+          <svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Creando...
+        `;
+
+        const response = await fetch('/api/create-instance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            numberphone: userPhone?.celular,
+            provider: userPhone?.tipo === 'meta' ? 'meta' : 'baileys',
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showToast('Bot creado exitosamente');
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          showToast(data.error || 'Error al crear el bot', true);
+          restoreButton();
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showToast('Error al crear el bot', true);
+        restoreButton();
+      }
+    });
+  }
+
+  function restoreButton() {
+    if (createButton) {
+      createButton.disabled = false;
+      createButton.innerHTML = `
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        Crear Bot
+      `;
+    }
+  }
+
+  function showToast(message, isError = false) {
+    if (toast && toastMessage) {
+      toastMessage.textContent = message;
+      toast.classList.remove('hidden');
+      toast.classList.add(isError ? 'border-red-500' : 'border-green-500');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+    }
+  }
+
+  // Copiar IP al portapapeles
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (target && target.closest('button[onclick^="navigator.clipboard"]')) {
+      e.preventDefault();
+      const button = target.closest('button');
+      const ip = button?.previousElementSibling?.textContent?.trim();
+      if (ip && ip !== 'Sin IP') {
+        navigator.clipboard.writeText(ip);
+        showToast('IP copiada al portapapeles');
+      }
+    }
+  });
+</script>

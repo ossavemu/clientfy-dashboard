@@ -2,6 +2,9 @@
   "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
     "verbatimModuleSyntax": true,
-    "types": ["astro/client"]
+    "types": [
+      "astro/client",
+      "node-ssh"
+    ]
   }
 }

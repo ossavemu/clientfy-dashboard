@@ -202,10 +202,8 @@ const instanceState = JSON.parse(state);
   const loadingSpinner = document.getElementById(
     'loadingSpinner'
   ) as HTMLElement;
-  const toast = document.getElementById('toast') as HTMLDivElement;
-  const toastMessage = document.getElementById(
-    'toastMessage'
-  ) as HTMLParagraphElement;
+  const toast = document.getElementById('toast') as HTMLElement;
+  const toastMessage = document.getElementById('toastMessage') as HTMLElement;
 
   // Función para actualizar la tabla
   async function refreshTable() {
@@ -226,56 +224,67 @@ const instanceState = JSON.parse(state);
     refreshButton.addEventListener('click', refreshTable);
   }
 
-  // Habilitar/deshabilitar botón según selección
-  phoneSelect.addEventListener('change', () => {
-    createButton.disabled = !phoneSelect.value;
-  });
+  if (phoneSelect && createButton) {
+    // Habilitar/deshabilitar botón según selección
+    phoneSelect.addEventListener('change', () => {
+      createButton.disabled = !phoneSelect.value;
+    });
+  }
 
   // Mostrar toast
   function showToast(message: string, isError = false) {
-    toastMessage.textContent = message;
-    toast.classList.remove('hidden');
-    toast.classList.add(isError ? 'border-red-500' : 'border-green-500');
-    setTimeout(() => {
-      toast.classList.add('hidden');
-    }, 3000);
+    if (toast && toastMessage) {
+      toastMessage.textContent = message;
+      toast.classList.remove('hidden');
+      toast.classList.add(isError ? 'border-red-500' : 'border-green-500');
+      setTimeout(() => {
+        toast?.classList.add('hidden');
+      }, 3000);
+    }
   }
 
-  // Manejar creación de instancia
-  createButton.addEventListener('click', async () => {
-    const phone = phoneSelect.value;
-    if (!phone) return;
+  if (createButton && phoneSelect && loadingSpinner) {
+    // Manejar creación de instancia
+    createButton.addEventListener('click', async () => {
+      const phone = phoneSelect.value;
+      if (!phone) return;
 
-    // Mostrar estado de carga
-    createButton.disabled = true;
-    createButton.querySelector('span')!.textContent = 'Creando...';
-    loadingSpinner.classList.remove('hidden');
+      // Mostrar estado de carga
+      createButton.disabled = true;
+      const spanElement = createButton.querySelector('span');
+      if (spanElement) spanElement.textContent = 'Creando...';
+      loadingSpinner.classList.remove('hidden');
 
-    try {
-      const response = await fetch('/api/create-instance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ numberphone: phone.replace(/\D/g, '') }),
-      });
+      try {
+        const response = await fetch('/api/create-instance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            numberphone: phone.replace(/\D/g, ''),
+            provider: 'baileys', // O determinar el provider de otra manera
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.success) {
-        showToast('Instancia creada exitosamente');
-        setTimeout(() => window.location.reload(), 2000);
-      } else {
-        showToast(data.error || 'Error al crear la instancia', true);
+        if (data.success) {
+          showToast('Instancia creada exitosamente');
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          showToast(data.error || 'Error al crear la instancia', true);
+        }
+      } catch (error) {
+        showToast('Error al crear la instancia', true);
+      } finally {
+        createButton.disabled = false;
+        const spanElement = createButton.querySelector('span');
+        if (spanElement) spanElement.textContent = 'Crear Instancia';
+        loadingSpinner.classList.add('hidden');
       }
-    } catch (error) {
-      showToast('Error al crear la instancia', true);
-    } finally {
-      createButton.disabled = false;
-      createButton.querySelector('span')!.textContent = 'Crear Instancia';
-      loadingSpinner.classList.add('hidden');
-    }
-  });
+    });
+  }
 
   // Copiar IP al portapapeles
   document.addEventListener('click', (e) => {

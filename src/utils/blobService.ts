@@ -76,6 +76,14 @@ export const blobService = {
     content: Buffer,
     contentType: string
   ) {
+    if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+      throw new Error(
+        `Tipo de archivo no permitido. Tipos permitidos: ${ALLOWED_MIME_TYPES.join(
+          ', '
+        )}`
+      );
+    }
+
     return this.upload(phoneNumber, fileName, content, contentType);
   },
 
@@ -163,6 +171,62 @@ export const blobService = {
       fileName: latestPrompt.name,
       downloadUrl: latestPrompt.downloadUrl,
       prompt: latestPrompt.content.toString('utf-8'),
+    };
+  },
+
+  async getConfigFile(fileName: string) {
+    const containerClient = await this.initialize();
+    const blobClient = containerClient.getBlockBlobClient(`config/${fileName}`);
+
+    try {
+      const downloadResponse = await blobClient.downloadToBuffer();
+      return downloadResponse.toString('utf-8');
+    } catch (error) {
+      if ((error as any).statusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getFileFromConfig(fileName: string): Promise<string | null> {
+    try {
+      const containerClient = await this.initialize('config');
+      const blobClient = containerClient.getBlockBlobClient(fileName);
+
+      try {
+        const downloadResponse = await blobClient.downloadToBuffer();
+        return downloadResponse.toString('utf-8');
+      } catch (error: any) {
+        if (error.statusCode === 404) {
+          return null;
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error(`Error getting file ${fileName} from config:`, error);
+      return null;
+    }
+  },
+
+  async renameFile(phoneNumber: string, oldName: string, newName: string) {
+    const containerClient = await this.initialize();
+    const oldBlobClient = containerClient.getBlockBlobClient(
+      `${phoneNumber}/${oldName}`
+    );
+    const newBlobClient = containerClient.getBlockBlobClient(
+      `${phoneNumber}/${newName}`
+    );
+
+    // Copiar el blob con el nuevo nombre
+    await newBlobClient.beginCopyFromURL(oldBlobClient.url);
+
+    // Eliminar el blob original
+    await oldBlobClient.delete();
+
+    return {
+      fileName: newName,
+      downloadUrl: this.generateSasUrl(newBlobClient),
     };
   },
 };
